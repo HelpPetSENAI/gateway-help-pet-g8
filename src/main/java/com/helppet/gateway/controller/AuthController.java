@@ -1,10 +1,8 @@
 package com.helppet.gateway.controller;
 
-import com.helppet.gateway.dto.LoginRequest;
 import com.helppet.gateway.dto.LoginResponse;
 import com.helppet.gateway.dto.TokenValidationResponse;
 import com.helppet.gateway.security.JwtProvider;
-import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;

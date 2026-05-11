@@ -18,15 +18,24 @@ public class GatewayConfig {
 
     /**
      * Resolve a chave do Rate Limiter pelo IP do cliente.
-     * O nome do bean "ipKeyResolver" e referenciado no application.yml.
+     * Considera ambientes de nuvem (Load Balancer, Proxy) checando X-Forwarded-For antes do remoto.
      */
     @Bean
     public KeyResolver ipKeyResolver() {
-        return exchange -> Mono.just(
-                Objects.requireNonNull(
-                        exchange.getRequest().getRemoteAddress(),
-                        "RemoteAddress nao pode ser nulo"
-                ).getAddress().getHostAddress()
-        );
+        return exchange -> {
+            String xForwardedFor = exchange.getRequest().getHeaders().getFirst("X-Forwarded-For");
+            if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+                // Em caso de multiplos IPs, pega o primeiro (o original)
+                String ip = xForwardedFor.split(",")[0].trim();
+                return Mono.just(ip);
+            }
+            
+            return Mono.just(
+                    Objects.requireNonNull(
+                            exchange.getRequest().getRemoteAddress(),
+                            "RemoteAddress nao pode ser nulo"
+                    ).getAddress().getHostAddress()
+            );
+        };
     }
 }

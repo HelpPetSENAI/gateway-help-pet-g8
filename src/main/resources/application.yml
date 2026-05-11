@@ -51,8 +51,6 @@ spring:
           uri: ${HELPPET_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/api/v1/pets/**
-          filters:
-            - StripPrefix=0
 
         # -------------------------------------------------------
         # HelpPet Service - Users
@@ -61,8 +59,6 @@ spring:
           uri: ${HELPPET_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/api/v1/users/**
-          filters:
-            - StripPrefix=0
 
         # -------------------------------------------------------
         # Slots para futuros microservicos (adicione abaixo)
@@ -78,7 +74,7 @@ server:
 
 # JWT
 jwt:
-  secret: ${JWT_SECRET:your-secret-key-change-in-production}
+  secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
 
 # CORS
@@ -94,9 +90,6 @@ logging:
     org.springframework.security: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-}] %logger{36} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-}] %logger{36} - %msg%n"
-  file:
-    name: logs/gateway.log
 
 # Actuator / Health Checks
 management:
