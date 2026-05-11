@@ -1,0 +1,61 @@
+# ============================================================
+# .gitignore - HelpPet Gateway
+# ============================================================
+
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# Variaveis de ambiente - NUNCA commitar
+.env
+*.env
+!.env.example
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# IDE - IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# IDE - Eclipse
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# IDE - VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Spring Boot
+spring-shell.log
+
+# Arquivos de build locais
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Certificados e chaves privadas
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
