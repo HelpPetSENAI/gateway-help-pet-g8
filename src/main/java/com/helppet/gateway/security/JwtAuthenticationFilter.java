@@ -3,18 +3,21 @@ package com.helppet.gateway.security;
 import io.jsonwebtoken.Claims;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -31,6 +34,16 @@ public class JwtAuthenticationFilter implements WebFilter {
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
     private static final String BEARER_PREFIX = "Bearer ";
+    private final AntPathMatcher antPathMatcher = new AntPathMatcher();
+
+    @Value("${api.security.public-paths:/auth/**,/api/v1/auth/**,/actuator/health,/api/health}")
+    private String[] publicPaths;
+
+    @Value("${api.security.public-post-paths:/api/v1/users,/api/v1/users/login}")
+    private String[] publicPostPaths;
+
+    @Value("${internal.service.token:CHANGE_ME_INTERNAL_TOKEN}")
+    private String internalServiceToken;
 
     private final JwtProvider jwtProvider;
 
@@ -40,13 +53,12 @@ public class JwtAuthenticationFilter implements WebFilter {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        String path = exchange.getRequest().getPath().value();
-
         // Rotas publicas: nao exigem autenticacao
-        if (isPublicPath(path)) {
+        if (isPublicPath(exchange)) {
             return chain.filter(exchange);
         }
 
+        String path = exchange.getRequest().getPath().value();
         String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
 
         if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
@@ -65,8 +77,12 @@ public class JwtAuthenticationFilter implements WebFilter {
         String email = claims.getSubject();
         String userId = claims.get("userId", String.class);
 
-        // Gera um requestId unico para rastreamento distribuido
-        String requestId = UUID.randomUUID().toString();
+        // Reutiliza requestId de entrada quando presente para correlacao ponta a ponta
+        String requestId = exchange.getRequest().getHeaders().getFirst("X-Request-Id");
+        if (requestId == null || requestId.isBlank()) {
+            requestId = UUID.randomUUID().toString();
+        }
+        final String finalRequestId = requestId;
 
         log.debug("JWT valido | usuario: {} | userId: {} | requestId: {}", email, userId, requestId);
 
@@ -75,7 +91,8 @@ public class JwtAuthenticationFilter implements WebFilter {
                 .request(req -> req.headers(headers -> {
                     headers.set("X-User-Id", userId != null ? userId : "");
                     headers.set("X-User-Email", email != null ? email : "");
-                    headers.set("X-Request-Id", requestId);
+                    headers.set("X-Request-Id", finalRequestId);
+                    headers.set("X-Internal-Token", internalServiceToken);
                 }))
                 .build();
 
@@ -86,10 +103,30 @@ public class JwtAuthenticationFilter implements WebFilter {
                 .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication));
     }
 
-    private boolean isPublicPath(String path) {
-        return path.startsWith("/auth/")
-                || path.startsWith("/actuator/")
-                || path.equals("/actuator");
+    private boolean isPublicPath(ServerWebExchange exchange) {
+        String path = exchange.getRequest().getPath().value();
+        String method = exchange.getRequest().getMethod() != null
+                ? exchange.getRequest().getMethod().name()
+                : "";
+
+        if (matchesAnyPattern(path, List.of(publicPaths))) {
+            return true;
+        }
+
+        if ("POST".equals(method) && matchesAnyPattern(path, List.of(publicPostPaths))) {
+            return true;
+        }
+
+        // Permitir CORS OPTIONS preflight
+        if ("OPTIONS".equals(method)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private boolean matchesAnyPattern(String path, List<String> patterns) {
+        return patterns.stream().anyMatch(pattern -> antPathMatcher.match(pattern, path));
     }
 
     private Mono<Void> unauthorized(ServerWebExchange exchange, String message) {

@@ -44,33 +44,129 @@ spring:
         - AddResponseHeader=X-Frame-Options, DENY
 
       routes:
-        # -------------------------------------------------------
-        # HelpPet Service - Pets
-        # -------------------------------------------------------
-        - id: helppet-pets
-          uri: ${HELPPET_SERVICE_URL:http://localhost:8081}
+        # =======================================================
+        # PORTA 8081: Identidade e Seguranca (Users / Auth)
+        # =======================================================
+        - id: identity-security
+          uri: ${IDENTITY_SECURITY_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/v1/users/**, /api/v1/auth/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: identityCircuitBreaker
+                fallbackUri: forward:/fallback/service-unavailable
+
+        # =======================================================
+        # PORTA 8082: Gestao Completa de Pets
+        # =======================================================
+        - id: pet-management
+          uri: ${PET_MANAGEMENT_URL:http://localhost:8081}
           predicates:
             - Path=/api/v1/pets/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: petCircuitBreaker
+                fallbackUri: forward:/fallback/service-unavailable
 
-        # -------------------------------------------------------
-        # HelpPet Service - Users
-        # -------------------------------------------------------
-        - id: helppet-users
-          uri: ${HELPPET_SERVICE_URL:http://localhost:8081}
+        # =======================================================
+        # PORTA 8083: Encontrar Pets (Achados e Perdidos)
+        # =======================================================
+        - id: lost-found-pets
+          uri: ${LOST_FOUND_PETS_URL:http://localhost:8083}
           predicates:
-            - Path=/api/v1/users/**
+            - Path=/api/v1/lost-pets/**, /api/v1/found-pets/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: lostFoundCircuitBreaker
+                fallbackUri: forward:/fallback/service-unavailable
 
-        # -------------------------------------------------------
-        # Slots para futuros microservicos (adicione abaixo)
-        # Exemplo:
-        # - id: notification-service
-        #   uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8083}
+        # =======================================================
+        # PORTA 8084: Localizacao e Distancia
+        # =======================================================
+        - id: location-distance
+          uri: ${LOCATION_DISTANCE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/locations/**, /api/v1/distances/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: locationCircuitBreaker
+                fallbackUri: forward:/fallback/service-unavailable
+
+        # =======================================================
+        # PORTA 8085: Processo de Adocao
+        # =======================================================
+        - id: adoption-process
+          uri: ${ADOPTION_PROCESS_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/v1/adoptions/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: adoptionCircuitBreaker
+                fallbackUri: forward:/fallback/service-unavailable
+
+        # =======================================================
+        # PORTA 8086: Comunicacao (Chat / Mensagens)
+        # =======================================================
+        - id: communication-chat
+          uri: ${COMMUNICATION_CHAT_URL:http://localhost:8086}
+          predicates:
+            - Path=/api/v1/chats/**, /api/v1/messages/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: chatCircuitBreaker
+                fallbackUri: forward:/fallback/service-unavailable
+
+        # =======================================================
+        # PORTA 8087: Alertas do Sistema (Notificacoes)
+        # =======================================================
+        - id: system-alerts
+          uri: ${SYSTEM_ALERTS_URL:http://localhost:8087}
+          predicates:
+            - Path=/api/v1/notifications/**, /api/v1/alerts/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: alertsCircuitBreaker
+                fallbackUri: forward:/fallback/service-unavailable
+
+        # =======================================================
+        # PORTA 8088: Reservado (Futuro Microsservico)
+        # =======================================================
+        # - id: future-service-1
+        #   uri: ${FUTURE_SERVICE_1_URL:http://localhost:8088}
         #   predicates:
-        #     - Path=/api/v1/notifications/**
-        # -------------------------------------------------------
+        #     - Path=/api/v1/future1/**
+
+        # =======================================================
+        # PORTA 8089: Reservado (Futuro Microsservico)
+        # =======================================================
+        # - id: future-service-2
+        #   uri: ${FUTURE_SERVICE_2_URL:http://localhost:8089}
+        #   predicates:
+        #     - Path=/api/v1/future2/**
 
 server:
   port: ${SERVER_PORT:8080}
+
+# =======================================================
+# Controle de Rotas Publicas (Modo Profissional sem Hardcode)
+# =======================================================
+api:
+  security:
+    public-paths:
+      - "/auth/**"
+      - "/api/v1/auth/**"
+      - "/actuator/health"
+      - "/api/health"
+    public-post-paths:
+      - "/api/v1/users"
+      - "/api/v1/users/login"
 
 # JWT
 jwt:
@@ -84,10 +180,10 @@ cors:
 # Logging
 logging:
   level:
-    root: INFO
-    com.helppet: DEBUG
-    org.springframework.cloud.gateway: DEBUG
-    org.springframework.security: INFO
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.helppet: ${LOG_LEVEL_APP:INFO}
+    org.springframework.cloud.gateway: ${LOG_LEVEL_GATEWAY:INFO}
+    org.springframework.security: ${LOG_LEVEL_SECURITY:INFO}
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-}] %logger{36} - %msg%n"
 
@@ -111,10 +207,21 @@ management:
     readinessState:
       enabled: true
     redis:
-      enabled: true
+      enabled: ${MANAGEMENT_HEALTH_REDIS_ENABLED:false}
   info:
     env:
       enabled: true
+
+# Health agregado do Gateway (servicos futuros ficam desabilitados por padrao)
+health:
+  monitor:
+    identity-security: ${HEALTH_MONITOR_IDENTITY_SECURITY:true}
+    pet-management: ${HEALTH_MONITOR_PET_MANAGEMENT:true}
+    lost-found: ${HEALTH_MONITOR_LOST_FOUND:false}
+    location-distance: ${HEALTH_MONITOR_LOCATION_DISTANCE:false}
+    adoption-process: ${HEALTH_MONITOR_ADOPTION_PROCESS:false}
+    communication-chat: ${HEALTH_MONITOR_COMMUNICATION_CHAT:false}
+    system-alerts: ${HEALTH_MONITOR_SYSTEM_ALERTS:false}
 
 info:
   app:

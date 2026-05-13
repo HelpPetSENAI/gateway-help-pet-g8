@@ -23,6 +23,12 @@ public class SecurityConfig {
     @Value("${cors.allowed-origins:http://localhost:3000,http://localhost:4200}")
     private String allowedOrigins;
 
+    @Value("${api.security.public-paths:/auth/**,/api/v1/auth/**,/actuator/health,/api/health}")
+    private String[] publicPaths;
+
+    @Value("${api.security.public-post-paths:/api/v1/users,/api/v1/users/login}")
+    private String[] publicPostPaths;
+
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
@@ -36,13 +42,19 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
                 .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
-                .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers("/auth/**").permitAll()
-                        .pathMatchers("/actuator/**").permitAll()
-                        .pathMatchers("/api/health").permitAll()
-                        .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .anyExchange().authenticated()
-                )
+                .authorizeExchange(exchanges -> {
+                    // 1. Libera todos os metodos para os resources puramente publicos
+                    exchanges.pathMatchers(publicPaths).permitAll();
+                    
+                    // 2. Libera unicamente os metodos POST das rotas que criam/logam usuarios
+                    exchanges.pathMatchers(HttpMethod.POST, publicPostPaths).permitAll();
+                    
+                    // 3. Libera requisicoes OPTIONS de pre-flight (CORS) globalmente
+                    exchanges.pathMatchers(HttpMethod.OPTIONS, "/**").permitAll();
+                    
+                    // Qualquer outra coisa e bloqueada no Flux
+                    exchanges.anyExchange().authenticated();
+                })
                 .addFilterAt(jwtAuthenticationFilter, SecurityWebFiltersOrder.AUTHENTICATION)
                 .build();
     }

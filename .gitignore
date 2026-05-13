@@ -2,22 +2,44 @@
 # .gitignore - HelpPet Gateway
 # ============================================================
 
-# Maven
+# ------------------------------------------------------------
+# Build
+# ------------------------------------------------------------
 target/
-!.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+*.class
+*.jar
+*.war
+*.ear
 
-# Variaveis de ambiente - NUNCA commitar
+# ------------------------------------------------------------
+# Secrets e variaveis de ambiente
+# ------------------------------------------------------------
 .env
 *.env
 !.env.example
+*.env.local
+*.local
 
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+
+# ------------------------------------------------------------
+# Logs e diagnostico
+# ------------------------------------------------------------
 # Logs
 logs/
 *.log
 *.log.*
+*.hprof
+hs_err_pid*
+replay_pid*
 
+# ------------------------------------------------------------
+# IDE - IntelliJ IDEA
+# ------------------------------------------------------------
 # IDE - IntelliJ IDEA
 .idea/
 *.iws
@@ -25,6 +47,9 @@ logs/
 *.ipr
 out/
 
+# ------------------------------------------------------------
+# IDE - Eclipse
+# ------------------------------------------------------------
 # IDE - Eclipse
 .apt_generated
 .classpath
@@ -34,6 +59,9 @@ out/
 .springBeans
 .sts4-cache
 
+# ------------------------------------------------------------
+# IDE - VS Code
+# ------------------------------------------------------------
 # IDE - VS Code
 .vscode/
 
@@ -43,19 +71,3 @@ Thumbs.db
 
 # Spring Boot
 spring-shell.log
-
-# Arquivos de build locais
-*.class
-*.jar
-*.war
-*.ear
-*.zip
-*.tar.gz
-*.rar
-
-# Certificados e chaves privadas
-*.pem
-*.key
-*.p12
-*.jks
-*.keystore
