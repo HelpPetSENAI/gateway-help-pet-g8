@@ -1,5 +1,6 @@
 package com.helppet.gateway.filter;
 
+import com.helppet.gateway.service.MetricsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -14,6 +15,7 @@ import java.util.UUID;
 
 /**
  * Access log centralizado para todas as requisicoes que passam pelo Gateway.
+ * Também registra métricas de requisições e respostas para dashboard diário.
  */
 @Component
 public class AccessLogGlobalFilter implements GlobalFilter, Ordered {
@@ -22,9 +24,18 @@ public class AccessLogGlobalFilter implements GlobalFilter, Ordered {
     private static final String HEADER_REQUEST_ID = "X-Request-Id";
     private static final String ATTRIBUTE_REQUEST_ID = "accessLogRequestId";
 
+    private final MetricsService metricsService;
+
+    public AccessLogGlobalFilter(MetricsService metricsService) {
+        this.metricsService = metricsService;
+    }
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, org.springframework.cloud.gateway.filter.GatewayFilterChain chain) {
         long start = System.currentTimeMillis();
+
+        // Registrar requisição
+        metricsService.recordRequest();
 
         String requestId = exchange.getRequest().getHeaders().getFirst(HEADER_REQUEST_ID);
         if (requestId == null || requestId.isBlank()) {
@@ -39,6 +50,10 @@ public class AccessLogGlobalFilter implements GlobalFilter, Ordered {
                 int statusCode = exchange.getResponse().getStatusCode() != null
                     ? exchange.getResponse().getStatusCode().value()
                     : 0;
+                
+                // Registrar response com status code
+                metricsService.recordResponse(statusCode);
+                
                 Route route = exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
                     String routeId = route != null ? route.getId() : "no-route";
                 String method = exchange.getRequest().getMethod() != null
