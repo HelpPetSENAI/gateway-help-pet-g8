@@ -2,6 +2,7 @@ package com.helppet.gateway.repository;
 
 import com.helppet.gateway.entity.DailyMetrics;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -28,6 +29,8 @@ public interface DailyMetricsRepository extends JpaRepository<DailyMetrics, Long
 
     /**
      * Deletar métricas anteriores a 7 dias (cleanup automático).
+     * Retorna o número de registros deletados.
      */
-    void deleteByDateMetricBefore(LocalDate cutoffDate);
+    @Modifying
+    long deleteByDateMetricBefore(LocalDate cutoffDate);
 }

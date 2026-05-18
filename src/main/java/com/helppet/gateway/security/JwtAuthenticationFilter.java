@@ -16,13 +16,14 @@ import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
 /**
  * Filtro JWT reativo (WebFlux).
- *
+ * 
  * Responsabilidades:
  * 1. Extrair e validar o token Bearer do header Authorization
  * 2. Popular o SecurityContext com a autenticacao do usuario
@@ -36,11 +37,16 @@ public class JwtAuthenticationFilter implements WebFilter {
     private static final String BEARER_PREFIX = "Bearer ";
     private final AntPathMatcher antPathMatcher = new AntPathMatcher();
 
-    @Value("${api.security.public-paths:/auth/**,/api/v1/auth/**,/actuator/health,/api/health}")
-    private String[] publicPaths;
-
-    @Value("${api.security.public-post-paths:/api/v1/users,/api/v1/users/login}")
-    private String[] publicPostPaths;
+    @Value("${api.security.public-paths[0]:/auth/**}")
+    private String publicPath0;
+    @Value("${api.security.public-paths[1]:/api/v1/auth/**}")
+    private String publicPath1;
+    @Value("${api.security.public-paths[2]:/actuator/health}")
+    private String publicPath2;
+    @Value("${api.security.public-paths[3]:/api/health}")
+    private String publicPath3;
+    @Value("${api.security.public-paths[4]:/api/metrics/**}")
+    private String publicPath4;
 
     @Value("${internal.service.token:CHANGE_ME_INTERNAL_TOKEN}")
     private String internalServiceToken;
@@ -109,16 +115,19 @@ public class JwtAuthenticationFilter implements WebFilter {
                 ? exchange.getRequest().getMethod().name()
                 : "";
 
-        if (matchesAnyPattern(path, List.of(publicPaths))) {
-            return true;
-        }
+        // Caminhos públicos: auth, metrics, health
+        List<String> publicPaths = Arrays.asList(
+                publicPath0, publicPath1, publicPath2, publicPath3, publicPath4
+        );
 
-        if ("POST".equals(method) && matchesAnyPattern(path, List.of(publicPostPaths))) {
+        if (matchesAnyPattern(path, publicPaths)) {
+            log.debug("Path público detectado: {}", path);
             return true;
         }
 
         // Permitir CORS OPTIONS preflight
         if ("OPTIONS".equals(method)) {
+            log.debug("Requisição OPTIONS permitida para: {}", path);
             return true;
         }
 
@@ -126,7 +135,15 @@ public class JwtAuthenticationFilter implements WebFilter {
     }
 
     private boolean matchesAnyPattern(String path, List<String> patterns) {
-        return patterns.stream().anyMatch(pattern -> antPathMatcher.match(pattern, path));
+        return patterns.stream()
+                .filter(p -> p != null && !p.isEmpty())
+                .anyMatch(pattern -> {
+                    boolean matches = antPathMatcher.match(pattern, path);
+                    if (matches) {
+                        log.debug("Path {} matches pattern {}", path, pattern);
+                    }
+                    return matches;
+                });
     }
 
     private Mono<Void> unauthorized(ServerWebExchange exchange, String message) {

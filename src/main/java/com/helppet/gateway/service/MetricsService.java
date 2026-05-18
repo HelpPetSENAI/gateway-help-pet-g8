@@ -2,6 +2,9 @@ package com.helppet.gateway.service;
 
 import com.helppet.gateway.entity.DailyMetrics;
 import com.helppet.gateway.repository.DailyMetricsRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,9 +19,13 @@ import java.util.Map;
 /**
  * Service para gerenciar métricas diárias de requisições e respostas.
  * Mantém rolling window de 7 dias e limpa dados antigos automaticamente.
+ * Usa controle otimista de concorrência para evitar race conditions.
  */
 @Service
 public class MetricsService {
+
+    private static final Logger log = LoggerFactory.getLogger(MetricsService.class);
+    private static final int MAX_RETRIES = 3;
 
     private final DailyMetricsRepository metricsRepository;
 
@@ -28,29 +35,63 @@ public class MetricsService {
 
     /**
      * Incrementar contador de request para o dia atual.
+     * Com retry em caso de conflito de versão (high concurrency).
      */
     @Transactional
     public void recordRequest() {
-        DailyMetrics today = getOrCreateTodayMetrics();
-        today.incrementRequest();
-        metricsRepository.save(today);
+        retryOnOptimisticLock(() -> {
+            DailyMetrics today = getOrCreateTodayMetrics();
+            today.incrementRequest();
+            metricsRepository.save(today);
+            return null;
+        });
     }
 
     /**
      * Incrementar contadores de response para o dia atual.
+     * Com retry em caso de conflito de versão.
      */
     @Transactional
     public void recordResponse(int statusCode) {
-        DailyMetrics today = getOrCreateTodayMetrics();
-        today.incrementResponse();
+        retryOnOptimisticLock(() -> {
+            DailyMetrics today = getOrCreateTodayMetrics();
+            today.incrementResponse();
 
-        if (statusCode >= 200 && statusCode < 300) {
-            today.incrementSuccess();
-        } else {
-            today.incrementError();
+            if (statusCode >= 200 && statusCode < 300) {
+                today.incrementSuccess();
+            } else {
+                today.incrementError();
+            }
+
+            metricsRepository.save(today);
+            return null;
+        });
+    }
+
+    /**
+     * Helper para retry com tratamento de OptimisticLockingFailureException.
+     */
+    private void retryOnOptimisticLock(java.util.function.Supplier<Void> operation) {
+        int attempt = 0;
+        while (attempt < MAX_RETRIES) {
+            try {
+                operation.get();
+                return;
+            } catch (OptimisticLockingFailureException e) {
+                attempt++;
+                if (attempt >= MAX_RETRIES) {
+                    log.error("Falha ao registrar métrica após {} tentativas", MAX_RETRIES, e);
+                    throw e;
+                }
+                log.debug("Conflito de versão ao atualizar métricas. Tentativa {} de {}", attempt, MAX_RETRIES);
+                // Pequeno delay antes de retry
+                try {
+                    Thread.sleep(10 * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+            }
         }
-
-        metricsRepository.save(today);
     }
 
     /**
@@ -70,6 +111,7 @@ public class MetricsService {
     /**
      * Obter dados dos últimos 7 dias para exibição no gráfico.
      */
+    @Transactional(readOnly = true)
     public Map<String, Object> getLast7DaysMetrics() {
         LocalDate sevenDaysAgo = LocalDate.now().minusDays(6); // Últimos 7 dias incluindo hoje
         List<DailyMetrics> dailyMetrics = metricsRepository.findLast7Days(sevenDaysAgo);
@@ -158,6 +200,9 @@ public class MetricsService {
     @Transactional
     public void cleanupOldMetrics() {
         LocalDate cutoffDate = LocalDate.now().minusDays(7);
-        metricsRepository.deleteByDateMetricBefore(cutoffDate);
+        long deletedCount = metricsRepository.deleteByDateMetricBefore(cutoffDate);
+        if (deletedCount > 0) {
+            log.info("Removidas {} registros de métricas anteriores a {}", deletedCount, cutoffDate);
+        }
     }
 }

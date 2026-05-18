@@ -6,6 +6,7 @@ import java.time.LocalDate;
 /**
  * Entidade para armazenar métricas diárias de requisições e respostas.
  * Mantém histórico de 7 dias (rolling window) - dados anteriores são deletados automaticamente.
+ * Usa @Version para controle otimista de concorrência (previne race conditions).
  */
 @Entity
 @Table(name = "daily_metrics")
@@ -14,6 +15,9 @@ public class DailyMetrics {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    private Long version; // Para controle otimista de concorrência
 
     @Column(nullable = false, unique = true)
     private LocalDate dateMetric;
@@ -46,6 +50,7 @@ public class DailyMetrics {
         this.responseCount = 0L;
         this.successCount = 0L;
         this.errorCount = 0L;
+        this.version = 0L;
     }
 
     // Getters e Setters
