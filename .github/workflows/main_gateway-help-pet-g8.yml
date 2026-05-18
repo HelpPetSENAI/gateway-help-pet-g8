@@ -1,0 +1,80 @@
+name: Deploy Gateway to Azure
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  REGISTRY_NAME: helppetregistry
+  IMAGE_NAME: helpet-gateway
+  AZURE_WEBAPP_NAME: helpet-gateway
+  AZURE_RESOURCE_GROUP: helpet-rg
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. Checkout do código
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      # 2. Login no Azure
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      # 3. Login no Azure Container Registry
+      - name: Login to Azure Container Registry
+        run: |
+          az acr login --name ${{ env.REGISTRY_NAME }}
+      
+      # 4. Build e push da imagem
+      - name: Build and push Docker image
+        run: |
+          az acr build \
+            --registry ${{ env.REGISTRY_NAME }} \
+            --image ${{ env.IMAGE_NAME }}:latest \
+            --image ${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            --file Dockerfile \
+            ./gateway
+      
+      # 5. Deploy no App Service
+      - name: Deploy to Azure App Service
+        run: |
+          az webapp config container set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --docker-custom-image-name ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest \
+            --docker-registry-server-url https://${{ env.REGISTRY_NAME }}.azurecr.io \
+            --docker-registry-server-username $(az acr credential show -n ${{ env.REGISTRY_NAME }} --query "username" -o tsv) \
+            --docker-registry-server-password $(az acr credential show -n ${{ env.REGISTRY_NAME }} --query "passwords[0].value" -o tsv)
+      
+      # 6. Reiniciar App Service
+      - name: Restart Azure Web App
+        run: |
+          az webapp restart \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
+      
+      # 7. Aguardar deployment
+      - name: Wait for deployment
+        run: sleep 30
+      
+      # 8. Testar health check
+      - name: Test health endpoint
+        run: |
+          for i in {1..5}; do
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/api/health)
+            if [ $RESPONSE -eq 200 ]; then
+              echo "✅ Health check passed!"
+              exit 0
+            fi
+            echo "Attempt $i/5 - Status: $RESPONSE - Waiting..."
+            sleep 10
+          done
+          echo "❌ Health check failed after 5 attempts"
+          exit 1
