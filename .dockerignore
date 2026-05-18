@@ -1,30 +1,121 @@
+# Arquivos e diretórios que não devem ir para a imagem Docker
+# Isso reduz o tamanho final da imagem
+
+# ============================================================
+# Documentação e README
+# ============================================================
 *.md
-.gitignore
+README*
+LICENSE
+NOTICE
+CHANGES
+docs/
+
+# ============================================================
+# Git
+# ============================================================
 .git
-.github
+.gitignore
 .gitattributes
-*.log
-logs/
+.github/
+
+# ============================================================
+# Build e Target (já será compilado no build stage)
+# ============================================================
 target/
-.mvn/
-mvnw
-mvnw.cmd
+out/
+build/
+.gradle/
+.m2/
 *.class
-*.jar
-.DS_Store
-.vscode
-.idea
+*.jar.original
+
+# ============================================================
+# IDE e Editor
+# ============================================================
+.idea/
+.vscode/
+.vscode-server/
 *.iml
-node_modules/
+*.sublime-project
+*.sublime-workspace
+.eclipse
+.project
+.classpath
+.settings/
+
+# ============================================================
+# Sistema Operacional
+# ============================================================
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+ehthumbs.db
+
+# ============================================================
+# Logs e Temporários
+# ============================================================
+logs/
+*.log
+*.log.*
+tmp/
+temp/
+*.pid
+
+# ============================================================
+# Environment e Secrets
+# ============================================================
 .env
 .env.local
 .env.*.local
-docker-compose.yml
-docker-compose.*.yml
-.docker
-.terraform
+.env.example
+secrets/
+
+# ============================================================
+# Docker
+# ============================================================
+.docker/
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# ============================================================
+# CI/CD
+# ============================================================
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+.azure-pipelines/
+
+# ============================================================
+# Node (se houver frontend)
+# ============================================================
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.npm/
+.node/
+
+# ============================================================
+# Maven Wrapper (será copiado no build stage)
+# ============================================================
+.mvn/
+mvnw
+mvnw.cmd
+
+# ============================================================
+# Diversos
+# ============================================================
+.terraform/
 .terraform.lock.hcl
-.gradle
-build/
-out/
+.vagrant/
+.venv/
+coverage/
+.nyc_output/
+*.swp
+*.swo
+*~
+.cache/
 

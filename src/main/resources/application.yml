@@ -45,109 +45,69 @@ spring:
 
       routes:
         # =======================================================
-        # PORTA 8081: Identidade e Seguranca (Users / Auth)
+        # PORTA 8081: G1 - Cadastro + Login + Perfis + Localização
         # =======================================================
-        - id: identity-security
-          uri: ${IDENTITY_SECURITY_URL:http://localhost:8081}
+        - id: g1-auth-users
+          uri: ${G1_URL:http://localhost:8081}
           predicates:
-            - Path=/api/v1/users/**, /api/v1/auth/**
+            - Path=/api/v1/users/**, /api/v1/auth/**, /api/v1/profiles/**, /api/v1/roles/**, /api/v1/user-locations/**
           filters:
             - name: CircuitBreaker
               args:
-                name: identityCircuitBreaker
+                name: g1CircuitBreaker
                 fallbackUri: forward:/fallback/service-unavailable
 
         # =======================================================
-        # PORTA 8082: Gestao Completa de Pets
+        # PORTA 8082: G2 - Pet CRUD + Upload + Histórico Doação
         # =======================================================
-        - id: pet-management
-          uri: ${PET_MANAGEMENT_URL:http://localhost:8081}
+        - id: g2-pets
+          uri: ${G2_URL:http://localhost:8082}
           predicates:
-            - Path=/api/v1/pets/**
+            - Path=/api/v1/pets/**, /api/v1/pet-uploads/**, /api/v1/donation-history/**
           filters:
             - name: CircuitBreaker
               args:
-                name: petCircuitBreaker
+                name: g2CircuitBreaker
                 fallbackUri: forward:/fallback/service-unavailable
 
         # =======================================================
-        # PORTA 8083: Encontrar Pets (Achados e Perdidos)
+        # PORTA 8083: G3 - Solicitação de Adoção
         # =======================================================
-        - id: lost-found-pets
-          uri: ${LOST_FOUND_PETS_URL:http://localhost:8083}
+        - id: g3-adoption
+          uri: ${G3_URL:http://localhost:8083}
           predicates:
-            - Path=/api/v1/lost-pets/**, /api/v1/found-pets/**
+            - Path=/api/v1/adoptions/**, /api/v1/adoption-approvals/**
           filters:
             - name: CircuitBreaker
               args:
-                name: lostFoundCircuitBreaker
+                name: g3CircuitBreaker
                 fallbackUri: forward:/fallback/service-unavailable
 
         # =======================================================
-        # PORTA 8084: Localizacao e Distancia
+        # PORTA 8084: G4 - Conversas + Histórico + Orientação
         # =======================================================
-        - id: location-distance
-          uri: ${LOCATION_DISTANCE_URL:http://localhost:8084}
+        - id: g4-chat
+          uri: ${G4_URL:http://localhost:8084}
           predicates:
-            - Path=/api/v1/locations/**, /api/v1/distances/**
+            - Path=/api/v1/conversations/**, /api/v1/messages/**, /api/v1/chat/**
           filters:
             - name: CircuitBreaker
               args:
-                name: locationCircuitBreaker
+                name: g4CircuitBreaker
                 fallbackUri: forward:/fallback/service-unavailable
 
         # =======================================================
-        # PORTA 8085: Processo de Adocao
+        # PORTA 8085: G5 - Notificações
         # =======================================================
-        - id: adoption-process
-          uri: ${ADOPTION_PROCESS_URL:http://localhost:8085}
-          predicates:
-            - Path=/api/v1/adoptions/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: adoptionCircuitBreaker
-                fallbackUri: forward:/fallback/service-unavailable
-
-        # =======================================================
-        # PORTA 8086: Comunicacao (Chat / Mensagens)
-        # =======================================================
-        - id: communication-chat
-          uri: ${COMMUNICATION_CHAT_URL:http://localhost:8086}
-          predicates:
-            - Path=/api/v1/chats/**, /api/v1/messages/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: chatCircuitBreaker
-                fallbackUri: forward:/fallback/service-unavailable
-
-        # =======================================================
-        # PORTA 8087: Alertas do Sistema (Notificacoes)
-        # =======================================================
-        - id: system-alerts
-          uri: ${SYSTEM_ALERTS_URL:http://localhost:8087}
+        - id: g5-notifications
+          uri: ${G5_URL:http://localhost:8085}
           predicates:
             - Path=/api/v1/notifications/**, /api/v1/alerts/**
           filters:
             - name: CircuitBreaker
               args:
-                name: alertsCircuitBreaker
+                name: g5CircuitBreaker
                 fallbackUri: forward:/fallback/service-unavailable
-
-        # =======================================================
-        # PORTA 8088: Reservado (Futuro Microsservico)
-        # =======================================================
-        # - id: future-service-1
-        #   uri: ${FUTURE_SERVICE_1_URL:http://localhost:8088}
-        #   predicates:
-        #     - Path=/api/v1/future1/**
-
-        # =======================================================
-        # PORTA 8089: Reservado (Futuro Microsservico)
-        # =======================================================
-        # - id: future-service-2
-        #   uri: ${FUTURE_SERVICE_2_URL:http://localhost:8089}
         #   predicates:
         #     - Path=/api/v1/future2/**
 
@@ -212,16 +172,14 @@ management:
     env:
       enabled: true
 
-# Health agregado do Gateway (servicos futuros ficam desabilitados por padrao)
+# Health agregado do Gateway
 health:
   monitor:
-    identity-security: ${HEALTH_MONITOR_IDENTITY_SECURITY:true}
-    pet-management: ${HEALTH_MONITOR_PET_MANAGEMENT:true}
-    lost-found: ${HEALTH_MONITOR_LOST_FOUND:false}
-    location-distance: ${HEALTH_MONITOR_LOCATION_DISTANCE:false}
-    adoption-process: ${HEALTH_MONITOR_ADOPTION_PROCESS:false}
-    communication-chat: ${HEALTH_MONITOR_COMMUNICATION_CHAT:false}
-    system-alerts: ${HEALTH_MONITOR_SYSTEM_ALERTS:false}
+    g1-auth-users: ${HEALTH_MONITOR_G1:true}
+    g2-pets: ${HEALTH_MONITOR_G2:true}
+    g3-adoption: ${HEALTH_MONITOR_G3:true}
+    g4-chat: ${HEALTH_MONITOR_G4:true}
+    g5-notifications: ${HEALTH_MONITOR_G5:true}
 
 info:
   app:
