@@ -103,10 +103,10 @@ spring:
         # =======================================================
         # PORTA 8085: G5 - Notificações
         # =======================================================
-        - id: g5-notifications
+        - id: g5-adoption-history
           uri: ${G5_URL:http://localhost:8085}
           predicates:
-            - Path=/api/v1/notifications/**, /api/v1/alerts/**
+            - Path=/history/**, /donation/**, /users/**
           filters:
             - name: CircuitBreaker
               args:
