@@ -123,21 +123,8 @@ jobs:
             --name ${{ secrets.APP_SERVICE_NAME }} \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }}
 
-      - name: Aguarda App Service ficar saudável
-        run: |
-          echo "Aguardando health check..."
-          for i in {1..12}; do
-            STATUS=$(az webapp show \
-              --name ${{ secrets.APP_SERVICE_NAME }} \
-              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-              --query "state" -o tsv)
-            echo "Status: $STATUS (tentativa $i/12)"
-            if [ "$STATUS" = "Running" ]; then
-              echo "✓ App Service rodando!"
-              break
-            fi
-            sleep 10
-          done
+      - name: Aguarda inicialização
+        run: sleep 30
 
       - name: Verifica endpoint de health
         continue-on-error: true
