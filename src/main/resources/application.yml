@@ -67,7 +67,7 @@ spring:
         - id: g2-pets
           uri: ${G2_URL:http://localhost:8082}
           predicates:
-            - Path=/api/v1/pets/**, /api/v1/pet-uploads/**, /api/v1/donation-history/**
+            - Path=/donations/**, /photos/**
           filters:
             - name: CircuitBreaker
               args:
