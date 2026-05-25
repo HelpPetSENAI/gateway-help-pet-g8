@@ -123,7 +123,7 @@ server:
 # =======================================================
 api:
   security:
-    public-paths: "/auth/**,/api/v1/auth/**,/actuator/health,/api/health"
+    public-paths: "/auth/**,/api/v1/auth/**,/actuator/health,/actuator/health/**,/api/health"
     public-post-paths: "/api/v1/users,/api/v1/users/login"
     internal-token: ${INTERNAL_SERVICE_TOKEN}
 

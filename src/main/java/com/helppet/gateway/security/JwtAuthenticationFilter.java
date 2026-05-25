@@ -41,7 +41,7 @@ public class JwtAuthenticationFilter implements WebFilter {
     private static final String BEARER_PREFIX = "Bearer ";
     private final AntPathMatcher antPathMatcher = new AntPathMatcher();
 
-    @Value("${api.security.public-paths:/auth/**,/api/v1/auth/**,/actuator/health,/api/health}")
+    @Value("${api.security.public-paths:/auth/**,/api/v1/auth/**,/actuator/health,/actuator/health/**,/api/health}")
     private String[] publicPaths;
 
     @Value("${api.security.public-post-paths:/api/v1/users,/api/v1/users/login}")
