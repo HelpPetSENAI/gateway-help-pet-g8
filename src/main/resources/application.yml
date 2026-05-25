@@ -1,0 +1,189 @@
+spring:
+  application:
+    name: ${SPRING_APPLICATION_NAME:help-pet-gateway}
+
+  # Redis (Rate Limiting)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+
+  # Spring Cloud Gateway - roteamento declarativo nativo
+  cloud:
+    gateway:
+      # Timeout global para todos os servicos downstream
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 30s
+
+      # Filtros globais aplicados em TODAS as rotas
+      default-filters:
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.replenishRate: ${RATE_LIMIT_REPLENISH_RATE:20}
+            redis-rate-limiter.burstCapacity: ${RATE_LIMIT_BURST_CAPACITY:40}
+            redis-rate-limiter.requestedTokens: 1
+            key-resolver: "#{@ipKeyResolver}"
+        - name: Retry
+          args:
+            retries: 2
+            statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE
+            methods: GET
+            backoff:
+              firstBackoff: 100ms
+              maxBackoff: 500ms
+        - AddResponseHeader=X-Gateway-Version, 1.0.0
+        - AddResponseHeader=X-Content-Type-Options, nosniff
+        - AddResponseHeader=X-Frame-Options, DENY
+        - AddResponseHeader=Strict-Transport-Security, max-age=31536000; includeSubDomains
+        - AddResponseHeader=Referrer-Policy, strict-origin-when-cross-origin
+        - AddResponseHeader=Permissions-Policy, camera=(), microphone=(), geolocation=()
+        - AddResponseHeader=Content-Security-Policy, default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com
+
+      routes:
+        # =======================================================
+        # PORTA 8081: G1 - Cadastro + Login + Perfis + Localização
+        # =======================================================
+        - id: g1-auth-users
+          uri: ${G1_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/v1/users/**, /api/v1/auth/**, /api/v1/profiles/**, /api/v1/roles/**, /api/v1/user-locations/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: g1CircuitBreaker
+                fallbackUri: forward:/fallback/service-unavailable
+
+        # =======================================================
+        # PORTA 8082: G2 - Pet CRUD + Upload + Histórico Doação
+        # =======================================================
+        - id: g2-pets
+          uri: ${G2_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/v1/pets/**, /api/v1/pet-uploads/**, /api/v1/donation-history/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: g2CircuitBreaker
+                fallbackUri: forward:/fallback/service-unavailable
+
+        # =======================================================
+        # PORTA 8083: G3 - Solicitação de Adoção
+        # =======================================================
+        - id: g3-adoption
+          uri: ${G3_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/adoptions/**, /api/v1/adoption-approvals/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: g3CircuitBreaker
+                fallbackUri: forward:/fallback/service-unavailable
+
+        # =======================================================
+        # PORTA 8084: G4 - Conversas + Histórico + Orientação
+        # =======================================================
+        - id: g4-chat
+          uri: ${G4_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/conversations/**, /api/v1/messages/**, /api/v1/chat/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: g4CircuitBreaker
+                fallbackUri: forward:/fallback/service-unavailable
+
+        # =======================================================
+        # PORTA 8085: G5 - Notificações
+        # =======================================================
+        - id: g5-notifications
+          uri: ${G5_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/v1/notifications/**, /api/v1/alerts/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: g5CircuitBreaker
+                fallbackUri: forward:/fallback/service-unavailable
+        #   predicates:
+        #     - Path=/api/v1/future2/**
+
+server:
+  port: ${SERVER_PORT:8080}
+
+# =======================================================
+# Controle de Rotas Publicas (Modo Profissional sem Hardcode)
+# =======================================================
+api:
+  security:
+    public-paths: "/auth/**,/api/v1/auth/**,/actuator/health,/api/health"
+    public-post-paths: "/api/v1/users,/api/v1/users/login"
+    internal-token: ${INTERNAL_SERVICE_TOKEN}
+
+# JWT
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+# CORS
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:4200,http://localhost:5173}
+
+# Logging
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.helppet: ${LOG_LEVEL_APP:INFO}
+    org.springframework.cloud.gateway: ${LOG_LEVEL_GATEWAY:INFO}
+    org.springframework.security: ${LOG_LEVEL_SECURITY:INFO}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-}] %logger{36} - %msg%n"
+
+# Actuator / Health Checks
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,gateway
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+    gateway:
+      enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
+    redis:
+      enabled: ${MANAGEMENT_HEALTH_REDIS_ENABLED:false}
+  info:
+    env:
+      enabled: true
+
+# Health agregado do Gateway
+health:
+  monitor:
+    g1-auth-users: ${HEALTH_MONITOR_G1:true}
+    g2-pets: ${HEALTH_MONITOR_G2:true}
+    g3-adoption: ${HEALTH_MONITOR_G3:true}
+    g4-chat: ${HEALTH_MONITOR_G4:true}
+    g5-notifications: ${HEALTH_MONITOR_G5:true}
+
+info:
+  app:
+    name: HelpPet API Gateway
+    version: 1.0.0
+    description: API Gateway centralizado para os microservicos HelpPet
+spring.config.import: optional:file:.env[.properties]
+

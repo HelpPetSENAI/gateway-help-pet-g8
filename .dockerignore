@@ -1,0 +1,119 @@
+# Arquivos e diretórios que não devem ir para a imagem Docker
+# Isso reduz o tamanho final da imagem
+
+# ============================================================
+# Documentação e README
+# ============================================================
+*.md
+README*
+LICENSE
+NOTICE
+CHANGES
+docs/
+
+# ============================================================
+# Git
+# ============================================================
+.git
+.gitignore
+.gitattributes
+.github/
+
+# ============================================================
+# Build e Target (já será compilado no build stage)
+# ============================================================
+target/
+out/
+build/
+.gradle/
+.m2/
+*.class
+*.jar.original
+
+# ============================================================
+# IDE e Editor
+# ============================================================
+.idea/
+.vscode/
+.vscode-server/
+*.iml
+*.sublime-project
+*.sublime-workspace
+.eclipse
+.project
+.classpath
+.settings/
+
+# ============================================================
+# Sistema Operacional
+# ============================================================
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+ehthumbs.db
+
+# ============================================================
+# Logs e Temporários
+# ============================================================
+logs/
+*.log
+*.log.*
+tmp/
+temp/
+*.pid
+
+# ============================================================
+# Environment e Secrets
+# ============================================================
+.env
+.env.local
+.env.*.local
+.env.example
+secrets/
+
+# ============================================================
+# Docker
+# ============================================================
+.docker/
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# ============================================================
+# CI/CD
+# ============================================================
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+.azure-pipelines/
+
+# ============================================================
+# Node (se houver frontend)
+# ============================================================
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.npm/
+.node/
+
+# Maven Wrapper é necessário no build stage — NÃO excluir
+# .mvn/
+# mvnw
+# mvnw.cmd
+
+# ============================================================
+# Diversos
+# ============================================================
+.terraform/
+.terraform.lock.hcl
+.vagrant/
+.venv/
+coverage/
+.nyc_output/
+*.swp
+*.swo
+*~
+.cache/
+
