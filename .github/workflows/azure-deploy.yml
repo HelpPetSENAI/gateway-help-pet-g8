@@ -1,0 +1,153 @@
+# ============================================================
+# CI/CD — HelpPet Gateway → Azure Container Registry + App Service
+#
+# Secrets necessários no repositório (Settings → Secrets → Actions):
+#   AZURE_CREDENTIALS       → JSON do Service Principal (az ad sp create-for-rbac)
+#   ACR_NAME                → Nome do Azure Container Registry (ex: helppetacr)
+#   AZURE_RESOURCE_GROUP    → Nome do Resource Group (ex: helppet-rg)
+#   APP_SERVICE_NAME        → Nome do App Service (ex: helppet-gateway)
+# ============================================================
+
+name: Deploy Gateway → Azure
+
+on:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'src/**'
+      - 'pom.xml'
+      - 'Dockerfile'
+      - '.github/workflows/azure-deploy.yml'
+  workflow_dispatch:   # permite rodar manualmente pelo GitHub
+
+env:
+  IMAGE_NAME: helppet-gateway
+
+jobs:
+  # ----------------------------------------------------------
+  # 1. Build Maven + Testes
+  # ----------------------------------------------------------
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configura Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build Maven (sem testes)
+        run: ./mvnw clean package -DskipTests -B
+
+      - name: Salva JAR como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: gateway-jar
+          path: target/*.jar
+          retention-days: 1
+
+  # ----------------------------------------------------------
+  # 2. Build Docker + Push para ACR
+  # ----------------------------------------------------------
+  docker-push:
+    name: Docker Build & Push ACR
+    runs-on: ubuntu-latest
+    needs: build
+    outputs:
+      image-tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Login no Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login no Azure Container Registry
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Metadados da imagem Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Configura Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build e push da imagem
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ----------------------------------------------------------
+  # 3. Deploy no Azure App Service
+  # ----------------------------------------------------------
+  deploy:
+    name: Deploy Azure App Service
+    runs-on: ubuntu-latest
+    needs: docker-push
+    environment: production
+
+    steps:
+      - name: Login no Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Atualiza imagem no App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.APP_SERVICE_NAME }}
+          images: ${{ secrets.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
+
+      - name: Aguarda App Service ficar saudável
+        run: |
+          echo "Aguardando health check..."
+          for i in {1..12}; do
+            STATUS=$(az webapp show \
+              --name ${{ secrets.APP_SERVICE_NAME }} \
+              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --query "state" -o tsv)
+            echo "Status: $STATUS (tentativa $i/12)"
+            if [ "$STATUS" = "Running" ]; then
+              echo "✓ App Service rodando!"
+              break
+            fi
+            sleep 10
+          done
+
+      - name: Verifica endpoint de health
+        run: |
+          APP_URL=$(az webapp show \
+            --name ${{ secrets.APP_SERVICE_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --query "defaultHostName" -o tsv)
+          echo "URL: https://$APP_URL"
+          for i in {1..10}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://$APP_URL/actuator/health" || echo "000")
+            echo "Health check HTTP $HTTP_CODE (tentativa $i/10)"
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✓ Gateway saudável!"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "⚠ Health check não respondeu 200 — verifique os logs do App Service."
+          exit 1

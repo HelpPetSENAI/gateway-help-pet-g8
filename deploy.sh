@@ -197,6 +197,75 @@ deploy_render() {
 }
 
 # =================================================================
+# Deploy Azure App Service (via ACR)
+# =================================================================
+
+deploy_azure() {
+    print_header "Deploy no Azure App Service"
+
+    # Verificar Azure CLI
+    if ! command -v az &> /dev/null; then
+        print_error "Azure CLI não encontrado."
+        print_info "Instale em: https://docs.microsoft.com/pt-br/cli/azure/install-azure-cli"
+        return
+    fi
+    print_success "Azure CLI encontrado"
+
+    # Login se necessário
+    if ! az account show &> /dev/null; then
+        print_info "Fazendo login no Azure..."
+        az login
+    fi
+
+    read -p "Nome do Azure Container Registry (ex: helppetacr): " acr_name
+    read -p "Nome do Resource Group (ex: helppet-rg): " rg_name
+    read -p "Nome do App Service (ex: helppet-gateway): " app_name
+
+    if [ -z "$acr_name" ] || [ -z "$rg_name" ] || [ -z "$app_name" ]; then
+        print_error "Todos os campos são obrigatórios"
+        return
+    fi
+
+    IMAGE_TAG="$acr_name.azurecr.io/helppet-gateway:latest"
+
+    print_info "Fazendo login no ACR: $acr_name"
+    if ! az acr login --name "$acr_name"; then
+        print_error "Falha ao autenticar no ACR"
+        return
+    fi
+
+    print_info "Construindo imagem Docker..."
+    if ! docker build -t "$IMAGE_TAG" .; then
+        print_error "Falha no build Docker"
+        return
+    fi
+    print_success "Imagem construída: $IMAGE_TAG"
+
+    print_info "Fazendo push para ACR..."
+    if ! docker push "$IMAGE_TAG"; then
+        print_error "Falha ao enviar imagem"
+        return
+    fi
+    print_success "Imagem publicada no ACR"
+
+    print_info "Atualizando App Service: $app_name"
+    az webapp config container set \
+        --name "$app_name" \
+        --resource-group "$rg_name" \
+        --container-image-name "$IMAGE_TAG"
+
+    # Reinicia para pegar a nova imagem
+    az webapp restart --name "$app_name" --resource-group "$rg_name"
+
+    APP_URL=$(az webapp show --name "$app_name" --resource-group "$rg_name" --query "defaultHostName" -o tsv)
+    print_success "Deploy concluído!"
+    print_info "URL: https://$APP_URL"
+    print_info "Health: https://$APP_URL/actuator/health"
+    print_warning "Lembre de configurar as variáveis de ambiente no App Service!"
+    print_info "Consulte: AZURE_ENV_VARS.md"
+}
+
+# =================================================================
 # Deploy Google Cloud Run
 # =================================================================
 
@@ -380,10 +449,11 @@ show_menu() {
     echo "3. Build Docker"
     echo "4. Setup Variáveis de Ambiente (.env)"
     echo "5. Push para GitHub"
-    echo "6. Deploy Railway (Recomendado)"
-    echo "7. Deploy Render"
-    echo "8. Deploy Google Cloud Run"
-    echo "9. Deploy AWS Elastic Beanstalk"
+    echo "6. Deploy Azure App Service  ← RECOMENDADO"
+    echo "7. Deploy Railway"
+    echo "8. Deploy Render"
+    echo "9. Deploy Google Cloud Run"
+    echo "10. Deploy AWS Elastic Beanstalk"
     echo "0. Sair"
     echo ""
 }
@@ -403,10 +473,11 @@ main() {
             3) build_docker ;;
             4) setup_env_vars ;;
             5) push_github ;;
-            6) deploy_railway ;;
-            7) deploy_render ;;
-            8) deploy_gcp ;;
-            9)
+            6) deploy_azure ;;
+            7) deploy_railway ;;
+            8) deploy_render ;;
+            9) deploy_gcp ;;
+            10)
                 print_header "Deploy AWS Elastic Beanstalk"
                 print_info "1. Instale AWS CLI: https://aws.amazon.com/cli/"
                 print_info "2. Instale EB CLI: pip install awsebcli"
