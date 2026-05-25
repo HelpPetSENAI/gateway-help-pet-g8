@@ -111,11 +111,17 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Atualiza imagem no App Service
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ secrets.APP_SERVICE_NAME }}
-          images: ${{ secrets.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
+      - name: Configura container no App Service
+        run: |
+          az webapp config container set \
+            --name ${{ secrets.APP_SERVICE_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --container-image-name ${{ secrets.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest \
+            --container-registry-url https://${{ secrets.ACR_NAME }}.azurecr.io
+
+          az webapp restart \
+            --name ${{ secrets.APP_SERVICE_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }}
 
       - name: Aguarda App Service ficar saudável
         run: |
