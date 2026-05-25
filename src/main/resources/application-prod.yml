@@ -68,8 +68,8 @@ jwt:
 # Segurança — token interno e paths públicos
 api:
   security:
-    public-paths: "/auth/**,/api/v1/auth/**,/actuator/health,/actuator/health/**,/api/health"
-    public-post-paths: "/api/v1/users,/api/v1/users/login"
+    public-paths: "/auth/**,/api/auth/**,/actuator/health,/actuator/health/**,/api/health"
+    public-post-paths: "/api/users"
     internal-token: ${INTERNAL_SERVICE_TOKEN}
 
 # CORS — lido por SecurityConfig.java (@Value("${cors.allowed-origins}"))
