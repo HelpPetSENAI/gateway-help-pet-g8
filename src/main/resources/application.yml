@@ -106,7 +106,7 @@ spring:
         - id: g5-alerts
           uri: ${G5_URL:http://localhost:8085}
           predicates:
-            - Path=/alerts/**, /notifications/**
+            - Path=/notifications/**
           filters:
             - name: CircuitBreaker
               args:
