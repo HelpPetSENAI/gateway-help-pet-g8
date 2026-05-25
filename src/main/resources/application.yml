@@ -75,12 +75,12 @@ spring:
                 fallbackUri: forward:/fallback/service-unavailable
 
         # =======================================================
-        # PORTA 8083: G3 - Solicitação de Adoção
+        # G3 - Adoção (history, donation, users)
         # =======================================================
         - id: g3-adoption
           uri: ${G3_URL:http://localhost:8083}
           predicates:
-            - Path=/api/v1/adoptions/**, /api/v1/adoption-approvals/**
+            - Path=/history/**, /donation/**, /users/**
           filters:
             - name: CircuitBreaker
               args:
@@ -88,12 +88,12 @@ spring:
                 fallbackUri: forward:/fallback/service-unavailable
 
         # =======================================================
-        # PORTA 8084: G4 - Conversas + Histórico + Orientação
+        # G4 - Chat/Conversas (configurar quando tiver as rotas)
         # =======================================================
         - id: g4-chat
           uri: ${G4_URL:http://localhost:8084}
           predicates:
-            - Path=/api/v1/conversations/**, /api/v1/messages/**, /api/v1/chat/**
+            - Path=/chat/**, /conversations/**, /messages/**
           filters:
             - name: CircuitBreaker
               args:
@@ -101,19 +101,17 @@ spring:
                 fallbackUri: forward:/fallback/service-unavailable
 
         # =======================================================
-        # PORTA 8085: G5 - Notificações
+        # G5 - Alertas/Notificações (configurar quando tiver as rotas)
         # =======================================================
-        - id: g5-adoption-history
+        - id: g5-alerts
           uri: ${G5_URL:http://localhost:8085}
           predicates:
-            - Path=/history/**, /donation/**, /users/**
+            - Path=/alerts/**, /notifications/**
           filters:
             - name: CircuitBreaker
               args:
                 name: g5CircuitBreaker
                 fallbackUri: forward:/fallback/service-unavailable
-        #   predicates:
-        #     - Path=/api/v1/future2/**
 
 server:
   port: ${SERVER_PORT:8080}
